@@ -78,7 +78,7 @@ public:
             return false;
         }
 
-        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /2;
+        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /4;
         helicopterY = SCREEN_HEIGHT - HELICOPTER_HEIGHT - 100;
 
         continuePlaying = true;
@@ -92,7 +92,15 @@ public:
         // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer); // clear the renderer to the draw color
 
-        renderHelicopter();
+        if (continueGame)
+        {
+            renderHelicopter();
+        }
+        else
+        {
+            renderGameOver();
+            renderPlayAgainText();
+        }
 
         SDL_RenderPresent(renderer); // draw to the screen
     }
@@ -124,13 +132,18 @@ public:
         }
 
         const Uint8* currentKeyStates = SDL_GetKeyboardState(nullptr);
-        if (currentKeyStates[SDL_SCANCODE_LEFT]) // left arrow key
+        if (currentKeyStates[SDL_SCANCODE_UP] || currentKeyStates[SDL_SCANCODE_DOWN])
         {
-            // do something
-        }
-        if (currentKeyStates[SDL_SCANCODE_RIGHT]) // right arrow key
-        {
-            // do something
+            if (currentKeyStates[SDL_SCANCODE_UP]) // up arrow key
+            {
+                helicopterY -= HELICOPTER_SPEED;
+            }
+            if (currentKeyStates[SDL_SCANCODE_DOWN]) // down arrow key
+            {
+                helicopterY += HELICOPTER_SPEED;
+            }
+
+            detectHelicopterCollisionWithWalls();
         }
     }
 
@@ -151,8 +164,8 @@ public:
     bool gameOn() { return continueGame; }
 
 private:
-    int SCREEN_WIDTH;
-    int SCREEN_HEIGHT;
+    int SCREEN_WIDTH = 600;
+    int SCREEN_HEIGHT = 400;
 
     const char* SPRITES_FOLDER = "images/";
     const char* FONT_PATH = "images/consolas.ttf";
@@ -163,8 +176,13 @@ private:
     const string HELICOPTER_IMAGE_PATH = SPRITES_FOLDER + string("helicopter2.png");
     const int HELICOPTER_WIDTH = 50;
     const int HELICOPTER_HEIGHT = 30;
+    const int HELICOPTER_SPEED = 1;
     int helicopterX;
     int helicopterY;
+    // const int helicopterXLeftBoundary = 0;
+    // const int helicopterXRightBoundary = SCREEN_WIDTH - HELICOPTER_WIDTH;
+    const int helicopterYTopBoundary = 0;
+    const int helicopterYBottomBoundary = SCREEN_HEIGHT - HELICOPTER_HEIGHT;
 
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -178,7 +196,30 @@ private:
     bool continuePlaying = false;
     bool continueGame = false;
 
-    void renderHelicopter()
+    static bool checkCollision(const SDL_Rect& rect1, const SDL_Rect& rect2)
+    {
+        return SDL_HasIntersection(&rect1, &rect2);
+    }
+
+    void detectHelicopterCollisionWithWalls()
+    {
+        // if (helicopterX < helicopterXLeftBoundary || helicopteX > helicopterXRightBoundary)
+        // {
+        //     // collided vertical walls
+        // }
+        if (helicopterY < helicopterYTopBoundary) // hit the top
+        {
+            // collided top walls
+            continueGame = false;
+        }
+        else if (helicopterY > helicopterYBottomBoundary) // fell out of the bottom
+        {
+            // collided top walls
+            continueGame = false;
+        }
+    }
+
+    void renderHelicopter() const
     {
         const SDL_Rect helicopterRect = {helicopterX, helicopterY, HELICOPTER_WIDTH, HELICOPTER_HEIGHT};
         SDL_RenderCopy(renderer, helicopterTexture, nullptr, &helicopterRect);
@@ -186,6 +227,9 @@ private:
 
     void resetGame()
     {
+        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /4;
+        helicopterY = SCREEN_HEIGHT - HELICOPTER_HEIGHT - 100;
+
         continueGame = true;
     }
 
@@ -213,6 +257,12 @@ private:
         }
 
         return true;
+    }
+
+    void renderGameOver()
+    {
+        SDL_Rect gameOverRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+        SDL_RenderCopy(renderer, gameOverTexture, nullptr, &gameOverRect);
     }
 
     void renderText(const char* text, SDL_Texture*& texture, SDL_Rect& destRect)
