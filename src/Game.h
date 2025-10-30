@@ -11,10 +11,17 @@
 
 using namespace std;
 
+struct Helicopter
+{
+    float x = 100.0f;
+    float y = 200.0f;
+    float width, height;
+};
+
 class Game
 {
 public:
-    Game(): SCREEN_WIDTH(600), SCREEN_HEIGHT(400)
+    Game() : SCREEN_WIDTH(600), SCREEN_HEIGHT(400)
     {
     }
 
@@ -72,14 +79,16 @@ public:
             return false;
         }
 
-        if (!loadMedia())
+        if (!loadSDLImageMedia())
         {
             SDL_Quit();
             return false;
         }
 
-        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /4;
-        helicopterY = SCREEN_HEIGHT - HELICOPTER_HEIGHT - 100;
+        helicopter.x = 100.0f;
+        helicopter.y = 200.0f;
+        helicopter.width = HELICOPTER_WIDTH;
+        helicopter.height = HELICOPTER_HEIGHT;
 
         continuePlaying = true;
         continueGame = true;
@@ -132,18 +141,18 @@ public:
         }
 
         const Uint8* currentKeyStates = SDL_GetKeyboardState(nullptr);
-        if (currentKeyStates[SDL_SCANCODE_UP] || currentKeyStates[SDL_SCANCODE_DOWN])
+        if (currentKeyStates[SDL_SCANCODE_UP]) // up arrow key
         {
-            if (currentKeyStates[SDL_SCANCODE_UP]) // up arrow key
-            {
-                helicopterY -= HELICOPTER_SPEED;
-            }
-            if (currentKeyStates[SDL_SCANCODE_DOWN]) // down arrow key
-            {
-                helicopterY += HELICOPTER_SPEED;
-            }
+            helicopter.y -= HELICOPTERY_SPEED;
+        }
+        else
+        {
+            helicopter.y += GRAVITY;
+        }
 
-            detectHelicopterCollisionWithWalls();
+        if (detectHelicopterCollisionWithWalls())
+        {
+            continueGame = false;
         }
     }
 
@@ -173,16 +182,18 @@ private:
 
     const string GAME_OVER_IMAGE_PATH = SPRITES_FOLDER + string("gameover.png");
 
+    const float GRAVITY = 0.5f;
+
     const string HELICOPTER_IMAGE_PATH = SPRITES_FOLDER + string("helicopter2.png");
-    const int HELICOPTER_WIDTH = 50;
-    const int HELICOPTER_HEIGHT = 30;
-    const int HELICOPTER_SPEED = 1;
-    int helicopterX;
-    int helicopterY;
+    const float HELICOPTER_WIDTH = 50.0f;
+    const float HELICOPTER_HEIGHT = 30.0f;
+    const float HELICOPTERY_SPEED = 2.0f;
     // const int helicopterXLeftBoundary = 0;
     // const int helicopterXRightBoundary = SCREEN_WIDTH - HELICOPTER_WIDTH;
     const int helicopterYTopBoundary = 0;
     const int helicopterYBottomBoundary = SCREEN_HEIGHT - HELICOPTER_HEIGHT;
+
+    Helicopter helicopter;
 
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -201,39 +212,30 @@ private:
         return SDL_HasIntersection(&rect1, &rect2);
     }
 
-    void detectHelicopterCollisionWithWalls()
+    bool detectHelicopterCollisionWithWalls()
     {
-        // if (helicopterX < helicopterXLeftBoundary || helicopteX > helicopterXRightBoundary)
+        return helicopter.y < helicopterYTopBoundary || helicopter.y > helicopterYBottomBoundary;
         // {
-        //     // collided vertical walls
+        //     // collided top or bottom walls
+        //     continueGame = false;
         // }
-        if (helicopterY < helicopterYTopBoundary) // hit the top
-        {
-            // collided top walls
-            continueGame = false;
-        }
-        else if (helicopterY > helicopterYBottomBoundary) // fell out of the bottom
-        {
-            // collided top walls
-            continueGame = false;
-        }
     }
 
     void renderHelicopter() const
     {
-        const SDL_Rect helicopterRect = {helicopterX, helicopterY, HELICOPTER_WIDTH, HELICOPTER_HEIGHT};
-        SDL_RenderCopy(renderer, helicopterTexture, nullptr, &helicopterRect);
+        const SDL_FRect helicopterRect = {helicopter.x, helicopter.y, helicopter.width, helicopter.height};
+        SDL_RenderCopyF(renderer, helicopterTexture, nullptr, &helicopterRect);
     }
 
     void resetGame()
     {
-        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /4;
-        helicopterY = SCREEN_HEIGHT - HELICOPTER_HEIGHT - 100;
+        helicopter.x = 100.0f;
+        helicopter.y = 200.0f;
 
         continueGame = true;
     }
 
-    bool loadMedia()
+    bool loadSDLImageMedia()
     {
         helicopterTexture = IMG_LoadTexture(renderer, HELICOPTER_IMAGE_PATH.c_str());
         if (!helicopterTexture)
