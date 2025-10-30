@@ -180,6 +180,9 @@ public:
     {
         SDL_DestroyTexture(helicopterTexture);
 
+        for (Obstacle obstacle : obstacles)
+            SDL_DestroyTexture(obstacle.texture);
+
         SDL_DestroyTexture(obstacle1Texture);
         SDL_DestroyTexture(obstacle2Texture);
 
@@ -273,6 +276,7 @@ private:
 
         for (int i = 0; i < maxObstacles; i++)
         {
+            obstacles[i].x = static_cast<float>(SCREEN_WIDTH + rand() % 50);
             obstacles[i].y = rand() % static_cast<int>(SCREEN_HEIGHT - obstacles[i].height);
             obstacles[i].speed = static_cast<float>(rand() % 5 + 1);
             obstacles[i].texture = rand() % 2 ? obstacle1Texture : obstacle2Texture;
@@ -358,7 +362,7 @@ private:
 
         obstacle.width = 20;
         obstacle.height = 20;
-        obstacle.x = SCREEN_WIDTH;
+        obstacle.x = static_cast<float>(SCREEN_WIDTH + rand() % 50);
         obstacle.y = rand() % static_cast<int>(SCREEN_HEIGHT - obstacle.height);
 
         obstacle.speed = static_cast<float>(rand() % 3 + 1);
