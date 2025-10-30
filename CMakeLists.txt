@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 
 set(SOURCE_FILES
         src/main.cpp
+        src/Game.h
 )
 
 find_package(SDL2 REQUIRED)
