@@ -1,5 +1,7 @@
 #include <iostream>
 #include "Game.h"
+#include <cstdlib> // For rand() and srand()
+#include <ctime>   // For time()
 
 using namespace std;
 
@@ -12,6 +14,9 @@ int main()
         game.clean();
         return 1;
     }
+
+    // random seed
+    srand(time(nullptr));
 
     while (game.playing())
     {

@@ -11,24 +11,41 @@
 
 using namespace std;
 
+constexpr int SCREEN_WIDTH = 600;
+constexpr int SCREEN_HEIGHT = 400;
+inline auto SPRITES_FOLDER = "images/";
+
 struct Helicopter
 {
-    float x = 100.0f;
+    const float x = 100.0f;
     float y = 200.0f;
-    float width, height;
+    const float width = 50.0f;
+    const float height = 30.0f;
+
+    const float TOP_BOUNDARY = 0.0f;
+    const float BOTTOM_BOUNDARY = SCREEN_HEIGHT - height;
+
+    const float VERTICAL_SPEED = 2.0f;
+    const string HELICOPTER_IMAGE_PATH = SPRITES_FOLDER + string("helicopter2.png");
+
+    [[nodiscard]] bool collidedWithWalls() const
+    {
+        return y < TOP_BOUNDARY || y > BOTTOM_BOUNDARY;
+    }
+};
+
+const string IMAGE1_PATH = SPRITES_FOLDER + string("cacti-big.png");
+const string IMAGE2_PATH = SPRITES_FOLDER + string("cacti-small.png");
+
+struct Obstacle
+{
+    float x, y, width, height, speed;
+    SDL_Texture* texture;
 };
 
 class Game
 {
 public:
-    Game() : SCREEN_WIDTH(600), SCREEN_HEIGHT(400)
-    {
-    }
-
-    ~Game()
-    {
-    }
-
     bool init(const char* title)
     {
         return init(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, false);
@@ -60,8 +77,6 @@ public:
             return false;
         }
 
-        SCREEN_WIDTH = width;
-        SCREEN_HEIGHT = height;
         int flags = fullscreen ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_SHOWN;
         window = SDL_CreateWindow(title, xpos, ypos, width, SCREEN_HEIGHT, flags);
         if (!window)
@@ -85,37 +100,13 @@ public:
             return false;
         }
 
-        helicopter.x = 100.0f;
-        helicopter.y = 200.0f;
-        helicopter.width = HELICOPTER_WIDTH;
-        helicopter.height = HELICOPTER_HEIGHT;
+        for (int i = 0; i < maxObstacles; i++)
+            obstacles.push_back(createObstacle());
 
         continuePlaying = true;
         continueGame = true;
 
         return true;
-    }
-
-    void render()
-    {
-        // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderClear(renderer); // clear the renderer to the draw color
-
-        if (continueGame)
-        {
-            renderHelicopter();
-        }
-        else
-        {
-            renderGameOver();
-            renderPlayAgainText();
-        }
-
-        SDL_RenderPresent(renderer); // draw to the screen
-    }
-
-    void update()
-    {
     }
 
     void handleEvents()
@@ -143,22 +134,55 @@ public:
         const Uint8* currentKeyStates = SDL_GetKeyboardState(nullptr);
         if (currentKeyStates[SDL_SCANCODE_UP]) // up arrow key
         {
-            helicopter.y -= HELICOPTERY_SPEED;
+            helicopter.y -= helicopter.VERTICAL_SPEED;
         }
-        else
+    }
+
+    void update()
+    {
+        helicopter.y += GRAVITY;
+
+        for (Obstacle& obstacle : obstacles)
         {
-            helicopter.y += GRAVITY;
+            obstacle.x -= obstacle.speed;
+            if (obstacle.x + obstacle.width < 0)
+            {
+                obstacle.x = SCREEN_WIDTH;
+            }
         }
 
-        if (detectHelicopterCollisionWithWalls())
+        if (helicopter.collidedWithWalls() || detectHelicopterCollisionWithObstacles())
         {
             continueGame = false;
         }
     }
 
-    void clean()
+    void render()
+    {
+        SDL_RenderClear(renderer); // clear the renderer to the draw color
+
+        if (continueGame)
+        {
+            renderHelicopter();
+            renderObstacles();
+        }
+        else
+        {
+            SDL_Delay(500);
+            renderGameOver();
+            renderPlayAgainText();
+        }
+
+        SDL_RenderPresent(renderer); // draw to the screen
+    }
+
+    void clean() const
     {
         SDL_DestroyTexture(helicopterTexture);
+
+        SDL_DestroyTexture(obstacle1Texture);
+        SDL_DestroyTexture(obstacle2Texture);
+
         SDL_DestroyTexture(gameOverTexture);
         SDL_DestroyTexture(playAgainTexture);
 
@@ -169,14 +193,10 @@ public:
     }
 
     // a function to access the private running variable
-    bool playing() { return continuePlaying; }
-    bool gameOn() { return continueGame; }
+    [[nodiscard]] bool playing() const { return continuePlaying; }
+    [[nodiscard]] bool gameOn() const { return continueGame; }
 
 private:
-    int SCREEN_WIDTH = 600;
-    int SCREEN_HEIGHT = 400;
-
-    const char* SPRITES_FOLDER = "images/";
     const char* FONT_PATH = "images/consolas.ttf";
     const int FONT_SIZE = 32;
 
@@ -184,21 +204,17 @@ private:
 
     const float GRAVITY = 0.5f;
 
-    const string HELICOPTER_IMAGE_PATH = SPRITES_FOLDER + string("helicopter2.png");
-    const float HELICOPTER_WIDTH = 50.0f;
-    const float HELICOPTER_HEIGHT = 30.0f;
-    const float HELICOPTERY_SPEED = 2.0f;
-    // const int helicopterXLeftBoundary = 0;
-    // const int helicopterXRightBoundary = SCREEN_WIDTH - HELICOPTER_WIDTH;
-    const int helicopterYTopBoundary = 0;
-    const int helicopterYBottomBoundary = SCREEN_HEIGHT - HELICOPTER_HEIGHT;
+    const float helicopterYTopBoundary = 0.0f;
+    const float helicopterYBottomBoundary = SCREEN_HEIGHT - 30.0f;
 
-    Helicopter helicopter;
+    Helicopter helicopter = {};
 
-    SDL_Window* window;
-    SDL_Renderer* renderer;
+    SDL_Window* window = nullptr;
+    SDL_Renderer* renderer = nullptr;
 
     SDL_Texture* helicopterTexture = nullptr;
+    SDL_Texture* obstacle1Texture = nullptr;
+    SDL_Texture* obstacle2Texture = nullptr;
     SDL_Texture* gameOverTexture = nullptr;
     SDL_Texture* playAgainTexture = nullptr;
 
@@ -207,18 +223,28 @@ private:
     bool continuePlaying = false;
     bool continueGame = false;
 
-    static bool checkCollision(const SDL_Rect& rect1, const SDL_Rect& rect2)
+    const int maxObstacles = 5;
+    vector<Obstacle> obstacles;
+
+    static bool checkCollision(const SDL_FRect& rect1, const SDL_FRect& rect2)
     {
-        return SDL_HasIntersection(&rect1, &rect2);
+        return SDL_HasIntersectionF(&rect1, &rect2);
     }
 
-    bool detectHelicopterCollisionWithWalls()
+    bool detectHelicopterCollisionWithObstacles() const
     {
-        return helicopter.y < helicopterYTopBoundary || helicopter.y > helicopterYBottomBoundary;
-        // {
-        //     // collided top or bottom walls
-        //     continueGame = false;
-        // }
+        const SDL_FRect hRect = {helicopter.x, helicopter.y, helicopter.width, helicopter.height};
+        for (const Obstacle& obstacle : obstacles)
+        {
+            if (obstacle.x > helicopter.x || obstacle.x + obstacle.width > helicopter.x)
+            {
+                const SDL_FRect oRect = {obstacle.x, obstacle.y, obstacle.width, obstacle.height};
+                if (checkCollision(hRect, oRect))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     void renderHelicopter() const
@@ -227,20 +253,54 @@ private:
         SDL_RenderCopyF(renderer, helicopterTexture, nullptr, &helicopterRect);
     }
 
+    void renderObstacles()
+    {
+        for (Obstacle& obstacle : obstacles)
+        {
+            renderObstacle(obstacle);
+        }
+    }
+
+    void renderObstacle(const Obstacle& obstacle) const
+    {
+        const SDL_FRect obstacleRect = {obstacle.x, obstacle.y, obstacle.width, obstacle.height};
+        SDL_RenderCopyF(renderer, obstacle.texture, nullptr, &obstacleRect);
+    }
+
     void resetGame()
     {
-        helicopter.x = 100.0f;
         helicopter.y = 200.0f;
+
+        for (int i = 0; i < maxObstacles; i++)
+        {
+            obstacles[i].y = rand() % static_cast<int>(SCREEN_HEIGHT - obstacles[i].height);
+            obstacles[i].speed = static_cast<float>(rand() % 5 + 1);
+            obstacles[i].texture = rand() % 2 ? obstacle1Texture : obstacle2Texture;
+        }
 
         continueGame = true;
     }
 
     bool loadSDLImageMedia()
     {
-        helicopterTexture = IMG_LoadTexture(renderer, HELICOPTER_IMAGE_PATH.c_str());
+        helicopterTexture = IMG_LoadTexture(renderer, helicopter.HELICOPTER_IMAGE_PATH.c_str());
         if (!helicopterTexture)
         {
-            cerr << "IMG_LoadTexture images/helicopter.png error: " << IMG_GetError() << endl;
+            cerr << "IMG_LoadTexture images/helicopter2.png error: " << IMG_GetError() << endl;
+            return false;
+        }
+
+        obstacle1Texture = IMG_LoadTexture(renderer, IMAGE1_PATH.c_str());
+        if (!obstacle1Texture)
+        {
+            cerr << "IMG_LoadTexture images/cactus-big.png error: " << IMG_GetError() << endl;
+            return false;
+        }
+
+        obstacle2Texture = IMG_LoadTexture(renderer, IMAGE2_PATH.c_str());
+        if (!obstacle2Texture)
+        {
+            cerr << "IMG_LoadTexture images/cactus-small.png error: " << IMG_GetError() << endl;
             return false;
         }
 
@@ -261,13 +321,13 @@ private:
         return true;
     }
 
-    void renderGameOver()
+    void renderGameOver() const
     {
         SDL_Rect gameOverRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         SDL_RenderCopy(renderer, gameOverTexture, nullptr, &gameOverRect);
     }
 
-    void renderText(const char* text, SDL_Texture*& texture, SDL_Rect& destRect)
+    void renderText(const char* text, SDL_Texture*& texture, SDL_Rect& destRect) const
     {
         SDL_Color textColour = {255, 255, 255};
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, text, textColour);
@@ -290,6 +350,22 @@ private:
         renderText("Press Spacebar to Play Again", playAgainTexture, replayRect);
 
         SDL_RenderCopy(renderer, playAgainTexture, nullptr, &replayRect);
+    }
+
+    [[nodiscard]] Obstacle createObstacle() const
+    {
+        Obstacle obstacle;
+
+        obstacle.width = 20;
+        obstacle.height = 20;
+        obstacle.x = SCREEN_WIDTH;
+        obstacle.y = rand() % static_cast<int>(SCREEN_HEIGHT - obstacle.height);
+
+        obstacle.speed = static_cast<float>(rand() % 3 + 1);
+
+        obstacle.texture = rand() % 2 ? obstacle1Texture : obstacle2Texture;
+
+        return obstacle;
     }
 };
 
