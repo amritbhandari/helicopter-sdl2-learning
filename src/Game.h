@@ -14,7 +14,7 @@ using namespace std;
 class Game
 {
 public:
-    Game(): SCREEN_WIDTH(800), SCREEN_HEIGHT(600)
+    Game(): SCREEN_WIDTH(600), SCREEN_HEIGHT(400)
     {
     }
 
@@ -72,14 +72,28 @@ public:
             return false;
         }
 
+        if (!loadMedia())
+        {
+            SDL_Quit();
+            return false;
+        }
+
+        helicopterX = (SCREEN_WIDTH - HELICOPTER_WIDTH) /2;
+        helicopterY = SCREEN_HEIGHT - HELICOPTER_HEIGHT - 100;
+
         continuePlaying = true;
         continueGame = true;
+
         return true;
     }
 
     void render()
     {
+        // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer); // clear the renderer to the draw color
+
+        renderHelicopter();
+
         SDL_RenderPresent(renderer); // draw to the screen
     }
 
@@ -122,6 +136,10 @@ public:
 
     void clean()
     {
+        SDL_DestroyTexture(helicopterTexture);
+        SDL_DestroyTexture(gameOverTexture);
+        SDL_DestroyTexture(playAgainTexture);
+
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
 
@@ -133,25 +151,38 @@ public:
     bool gameOn() { return continueGame; }
 
 private:
+    int SCREEN_WIDTH;
+    int SCREEN_HEIGHT;
+
     const char* SPRITES_FOLDER = "images/";
     const char* FONT_PATH = "images/consolas.ttf";
     const int FONT_SIZE = 32;
 
     const string GAME_OVER_IMAGE_PATH = SPRITES_FOLDER + string("gameover.png");
 
-    int SCREEN_WIDTH;
-    int SCREEN_HEIGHT;
+    const string HELICOPTER_IMAGE_PATH = SPRITES_FOLDER + string("helicopter2.png");
+    const int HELICOPTER_WIDTH = 50;
+    const int HELICOPTER_HEIGHT = 30;
+    int helicopterX;
+    int helicopterY;
 
     SDL_Window* window;
     SDL_Renderer* renderer;
 
+    SDL_Texture* helicopterTexture = nullptr;
     SDL_Texture* gameOverTexture = nullptr;
-    SDL_Texture* replayTexture = nullptr;
+    SDL_Texture* playAgainTexture = nullptr;
 
     TTF_Font* font = nullptr;
 
     bool continuePlaying = false;
     bool continueGame = false;
+
+    void renderHelicopter()
+    {
+        const SDL_Rect helicopterRect = {helicopterX, helicopterY, HELICOPTER_WIDTH, HELICOPTER_HEIGHT};
+        SDL_RenderCopy(renderer, helicopterTexture, nullptr, &helicopterRect);
+    }
 
     void resetGame()
     {
@@ -160,17 +191,24 @@ private:
 
     bool loadMedia()
     {
+        helicopterTexture = IMG_LoadTexture(renderer, HELICOPTER_IMAGE_PATH.c_str());
+        if (!helicopterTexture)
+        {
+            cerr << "IMG_LoadTexture images/helicopter.png error: " << IMG_GetError() << endl;
+            return false;
+        }
+
         gameOverTexture = IMG_LoadTexture(renderer, GAME_OVER_IMAGE_PATH.c_str());
         if (!gameOverTexture)
         {
-            cout << "IMG_LoadTexture images/gameover.png error: " << IMG_GetError() << endl;
+            cerr << "IMG_LoadTexture images/gameover.png error: " << IMG_GetError() << endl;
             return false;
         }
 
         font = TTF_OpenFont(FONT_PATH, FONT_SIZE);
         if (!font)
         {
-            cout << "TTF_OpenFont error: " << TTF_GetError() << endl;
+            cerr << "TTF_OpenFont error: " << TTF_GetError() << endl;
             return false;
         }
 
@@ -197,9 +235,9 @@ private:
 
         replayRect.y = SCREEN_HEIGHT / 2 + 50;
 
-        renderText("Press Spacebar to Play Again", replayTexture, replayRect);
+        renderText("Press Spacebar to Play Again", playAgainTexture, replayRect);
 
-        SDL_RenderCopy(renderer, replayTexture, nullptr, &replayRect);
+        SDL_RenderCopy(renderer, playAgainTexture, nullptr, &replayRect);
     }
 };
 
